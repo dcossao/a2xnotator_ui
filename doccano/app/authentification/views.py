@@ -10,6 +10,7 @@ from django.views.generic import TemplateView
 from django.shortcuts import redirect
 
 from app import settings
+from src.data import doccano_daemon as daemon
 
 
 class SignupView(TemplateView):
@@ -36,10 +37,11 @@ class SignupView(TemplateView):
             user.save()
             current_site = get_current_site(request)
             mail_subject = 'Activate your account.'
+            uid = urlsafe_base64_encode(force_bytes(user.pk)).decode()
             message = render_to_string('acc_active_email.html', {
                 'user': user,
                 'domain': current_site.domain,
-                'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
+                'uid': uid,
                 'token': account_activation_token.make_token(user),
             })
             to_email = form.cleaned_data.get('email')
@@ -47,6 +49,21 @@ class SignupView(TemplateView):
             #     mail_subject, message, to=[to_email]
             # )
             # email.send()
+
+            setup_batch(user.id)
+
             return render(request, 'validate_mail_address_complete.html')
         else:
             return render(request, self.template_name, {'form': form, 'allow_signup': bool(settings.ALLOW_SIGNUP)})
+
+
+def setup_batch(user_id):
+    import logging
+
+    logger = logging.getLogger("test")
+    # logger.error("PATH >> " + str(daemon.get_path()))
+    batch_id = daemon.get_incomplete_batch()
+
+    logger.error(int(daemon.get_incomplete_batch()))
+    logger.error(user_id)
+    logger.error(daemon.assign_project(int(user_id), int(daemon.get_incomplete_batch())))
